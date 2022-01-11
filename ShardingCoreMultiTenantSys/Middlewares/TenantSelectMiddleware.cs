@@ -30,7 +30,7 @@ namespace ShardingCoreMultiTenantSys.Middlewares
             {
                 if (!context.User.Identity.IsAuthenticated)
                 {
-                    await DoUnAuthorized(context, "not found tenant id");
+                    await _next(context);
                     return;
                 }
 
