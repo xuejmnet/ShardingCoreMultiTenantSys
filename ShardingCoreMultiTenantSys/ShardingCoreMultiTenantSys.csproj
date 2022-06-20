@@ -11,7 +11,11 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="6.0.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="6.0.0" />
-    <PackageReference Include="ShardingCore" Version="6.4.0.1-rc3" />
+    <PackageReference Include="ShardingCore" Version="6.5.0.7" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\sharding-core\src\ShardingCore\ShardingCore.csproj" />
   </ItemGroup>
 
 </Project>

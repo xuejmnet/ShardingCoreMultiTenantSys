@@ -2,7 +2,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using ShardingCore;
-using ShardingCore.Bootstrapers;
+using ShardingCore.Bootstrappers;
 using ShardingCore.Core.VirtualDatabase.VirtualDataSources.Common;
 using ShardingCoreMultiTenantSys.DbContexts;
 using ShardingCoreMultiTenantSys.Extensions;
@@ -74,7 +74,7 @@ app.Services.GetRequiredService<IShardingBootstrapper>().Start();
 //初始化启动配置租户信息
 app.Services.InitTenant();
 app.UseAuthorization();
-app.UseAuthorization();
+
 //在认证后启用租户选择中间件
 app.UseMiddleware<TenantSelectMiddleware>();
 

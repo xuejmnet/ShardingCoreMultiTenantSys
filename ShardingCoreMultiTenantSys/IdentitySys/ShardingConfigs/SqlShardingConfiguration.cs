@@ -10,6 +10,7 @@ namespace ShardingCoreMultiTenantSys.IdentitySys.ShardingConfigs
 {
     public class SqlShardingConfiguration : AbstractVirtualDataSourceConfigurationParams<TenantDbContext>
     {
+
         private static readonly ILoggerFactory efLogger = LoggerFactory.Create(builder =>
         {
             builder.AddFilter((category, level) => category == DbLoggerCategory.Database.Command.Name && level == LogLevel.Information).AddConsole();
@@ -80,6 +81,14 @@ namespace ShardingCoreMultiTenantSys.IdentitySys.ShardingConfigs
                 default: throw new NotImplementedException();
             }
             return dbContextOptionsBuilder;
+        }
+
+        public override void UseShellDbContextOptionBuilder(DbContextOptionsBuilder dbContextOptionsBuilder)
+        {
+        }
+
+        public override void UseExecutorDbContextOptionBuilder(DbContextOptionsBuilder dbContextOptionsBuilder)
+        {
         }
     }
 }
