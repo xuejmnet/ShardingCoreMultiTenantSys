@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using ShardingCore;
 using ShardingCore.Bootstrappers;
-using ShardingCore.Core.VirtualDatabase.VirtualDataSources.Common;
 using ShardingCoreMultiTenantSys.DbContexts;
 using ShardingCoreMultiTenantSys.Extensions;
 using ShardingCoreMultiTenantSys.IdentitySys;
