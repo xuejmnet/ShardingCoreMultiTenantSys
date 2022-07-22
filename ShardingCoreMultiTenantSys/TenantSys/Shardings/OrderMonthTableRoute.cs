@@ -6,8 +6,9 @@ using ShardingCoreMultiTenantSys.TenantSys.Domain.Entities;
 
 namespace ShardingCoreMultiTenantSys.TenantSys.Shardings
 {
-    public class OrderVirtualTableRoute:AbstractSimpleShardingMonthKeyDateTimeVirtualTableRoute<Order>
+    public class OrderMonthTableRoute:AbstractSimpleShardingMonthKeyDateTimeVirtualTableRoute<Order>
     {
+        public static DateTime BeginTimeForSharding { get; set; } = new DateTime(2020, 1, 1);
         public override void Configure(EntityMetadataTableBuilder<Order> builder)
         {
             builder.ShardingProperty(o => o.CreationTime);
@@ -21,9 +22,7 @@ namespace ShardingCoreMultiTenantSys.TenantSys.Shardings
 
         public override DateTime GetBeginTime()
         {
-            return new DateTime(2022, 1, 1);
+            return BeginTimeForSharding;
         }
-
-        public override bool DoLogError => true;
     }
 }

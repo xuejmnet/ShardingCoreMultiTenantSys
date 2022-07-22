@@ -6,7 +6,9 @@ using ShardingCore.Bootstrappers;
 using ShardingCoreMultiTenantSys.DbContexts;
 using ShardingCoreMultiTenantSys.Extensions;
 using ShardingCoreMultiTenantSys.IdentitySys;
+using ShardingCoreMultiTenantSys.IdentitySys.ShardingConfigs;
 using ShardingCoreMultiTenantSys.Middlewares;
+using ShardingCoreMultiTenantSys.Tenants;
 using ShardingCoreMultiTenantSys.TenantSys.Shardings;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,14 +17,14 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddAuthentication();
-#region ÓÃ»§ÏµÍ³ÅäÖÃ
+#region ç”¨æˆ·ç³»ç»Ÿé…ç½®
 
 builder.Services.AddDbContext<IdentityDbContext>(o =>
     o.UseSqlServer("Data Source=localhost;Initial Catalog=IdDb;Integrated Security=True;"));
-//Éú³ÉÃÜÔ¿
+//ç”Ÿæˆå¯†é’¥
 var keyByteArray = Encoding.ASCII.GetBytes("123123!@#!@#123123");
 var signingKey = new SymmetricSecurityKey(keyByteArray);
-//ÈÏÖ¤²ÎÊı
+//è®¤è¯å‚æ•°
 builder.Services.AddAuthentication("Bearer")
     .AddJwtBearer(o =>
     {
@@ -40,41 +42,27 @@ builder.Services.AddAuthentication("Bearer")
         };
     });
 #endregion
-#region ÅäÖÃShardingCore
-builder.Services.AddShardingDbContext<TenantDbContext>()
-    .AddEntityConfig(op =>
-    {
-        op.CreateShardingTableOnStart = true;
-        op.EnsureCreatedWithOutShardingTable = true;
-        op.AddShardingTableRoute<OrderVirtualTableRoute>();
-    })
-    .AddConfig(op =>
-    {
-        //Ä¬ÈÏÅäÖÃÒ»¸ö
-        op.ConfigId = $"test_{Guid.NewGuid():n}";
-        op.Priority = 99999;
-        op.AddDefaultDataSource("ds0", "Data Source=localhost;Initial Catalog=TestTenantDb;Integrated Security=True;");
-        op.UseShardingQuery((conStr, b) =>
-        {
-            b.UseSqlServer(conStr);
-        });
-        op.UseShardingTransaction((conn, b) =>
-        {
-            b.UseSqlServer(conn);
-        });
-    }).EnsureMultiConfig(ShardingConfigurationStrategyEnum.ThrowIfNull);
 
+builder.Services.AddSingleton<ITenantManager, DefaultTenantManager>();
+builder.Services.AddSingleton<ITenantContextAccessor, TenantContextAccessor>();
+builder.Services.AddSingleton<IShardingBuilder, DefaultShardingBuilder>();
+#region é…ç½®ShardingCore
+
+builder.Services.AddDbContext<TenantDbContext>((sp, b) =>
+{
+    var tenantManager = sp.GetRequiredService<ITenantManager>();
+    var shardingRuntimeContext = tenantManager.GetCurrentTenantContext().GetShardingRuntimeContext();
+    b.UseDefaultSharding<TenantDbContext>(shardingRuntimeContext);
+});
 #endregion
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-app.Services.GetRequiredService<IShardingBootstrapper>().Start();
-//³õÊ¼»¯Æô¶¯ÅäÖÃ×â»§ĞÅÏ¢
+//åˆå§‹åŒ–å¯åŠ¨é…ç½®ç§Ÿæˆ·ä¿¡æ¯
 app.Services.InitTenant();
 app.UseAuthorization();
 
-//ÔÚÈÏÖ¤ºóÆôÓÃ×â»§Ñ¡ÔñÖĞ¼ä¼ş
+//åœ¨è®¤è¯åå¯ç”¨ç§Ÿæˆ·é€‰æ‹©ä¸­é—´ä»¶
 app.UseMiddleware<TenantSelectMiddleware>();
 
 app.MapControllers();

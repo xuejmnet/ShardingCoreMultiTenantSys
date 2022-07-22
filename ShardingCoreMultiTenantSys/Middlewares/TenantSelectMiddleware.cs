@@ -1,17 +1,18 @@
 ﻿using ShardingCore.Core.VirtualDatabase.VirtualDataSources.Abstractions;
 using ShardingCoreMultiTenantSys.DbContexts;
+using ShardingCoreMultiTenantSys.Tenants;
 
 namespace ShardingCoreMultiTenantSys.Middlewares
 {
     public class TenantSelectMiddleware
     {
         private readonly RequestDelegate _next;
-        private readonly IVirtualDataSourceManager<TenantDbContext> _virtualDataSourceManager;
+        private readonly ITenantManager _tenantManager;
 
-        public TenantSelectMiddleware(RequestDelegate next, IVirtualDataSourceManager<TenantDbContext> virtualDataSourceManager)
+        public TenantSelectMiddleware(RequestDelegate next,ITenantManager tenantManager)
         {
             _next = next;
-            _virtualDataSourceManager = virtualDataSourceManager;
+            _tenantManager = tenantManager;
         }
 
         /// <summary>
@@ -41,7 +42,7 @@ namespace ShardingCoreMultiTenantSys.Middlewares
                     return;
                 }
 
-                using (_virtualDataSourceManager.CreateScope(tenantId))
+                using (_tenantManager.CreateScope(tenantId))
                 {
                     await _next(context);
                 }

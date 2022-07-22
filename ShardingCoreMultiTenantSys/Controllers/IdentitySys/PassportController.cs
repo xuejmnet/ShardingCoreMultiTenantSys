@@ -7,24 +7,35 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
+using ShardingCore.Extensions;
 using ShardingCore.Helpers;
+using ShardingCoreMultiTenantSys.DbContexts;
 using ShardingCoreMultiTenantSys.IdentitySys;
 using ShardingCoreMultiTenantSys.IdentitySys.Domain.Entities;
 using ShardingCoreMultiTenantSys.IdentitySys.ShardingConfigs;
+using ShardingCoreMultiTenantSys.Tenants;
 
 namespace ShardingCoreMultiTenantSys.Controllers.IdentitySys
 {
     [Route("api/[controller]/[action]")]
     [ApiController]
     [AllowAnonymous]
-    public class PassportController:ControllerBase
+    public class PassportController : ControllerBase
     {
+        private readonly IServiceProvider _serviceProvider;
         private readonly IdentityDbContext _identityDbContext;
+        private readonly ITenantManager _tenantManager;
+        private readonly IShardingBuilder _shardingBuilder;
 
-        public PassportController(IdentityDbContext identityDbContext)
+        public PassportController(IServiceProvider serviceProvider, IdentityDbContext identityDbContext,
+            ITenantManager tenantManager, IShardingBuilder shardingBuilder)
         {
+            _serviceProvider = serviceProvider;
             _identityDbContext = identityDbContext;
+            _tenantManager = tenantManager;
+            _shardingBuilder = shardingBuilder;
         }
+
         [HttpPost]
         public async Task<IActionResult> Register(RegisterRequest request)
         {
@@ -35,15 +46,15 @@ namespace ShardingCoreMultiTenantSys.Controllers.IdentitySys
                 Id = Guid.NewGuid().ToString("n"),
                 Name = request.Name,
                 Password = request.Password,
-                CreationTime=DateTime.Now
+                CreationTime = DateTime.Now
             };
             var shardingTenantOptions = new ShardingTenantOptions()
             {
-                ConfigId = sysUser.Id,
-                Priority = new Random().Next(1,10),
                 DbType = request.DbType,
+                OrderShardingType = request.OrderShardingType,
+                BeginTimeForSharding = request.BeginTimeForSharding.Value,
                 DefaultDataSourceName = "ds0",
-                DefaultConnectionString = GetDefaultString(request.DbType,sysUser.Id)
+                DefaultConnectionString = GetDefaultString(request.DbType, sysUser.Id)
             };
             var sysUserTenantConfig = new SysUserTenantConfig()
             {
@@ -55,31 +66,46 @@ namespace ShardingCoreMultiTenantSys.Controllers.IdentitySys
             await _identityDbContext.AddAsync(sysUser);
             await _identityDbContext.AddAsync(sysUserTenantConfig);
             await _identityDbContext.SaveChangesAsync();
-            //注册完成后进行配置生成
-            DynamicShardingHelper.DynamicAppendVirtualDataSourceConfig(new SqlShardingConfiguration(shardingTenantOptions));
+            var shardingRuntimeContext = _shardingBuilder.Build(shardingTenantOptions);
+            _tenantManager.AddTenantSharding(sysUser.Id, shardingRuntimeContext);
+            using (_tenantManager.CreateScope(sysUser.Id))
+            using (var scope = _serviceProvider.CreateScope())
+            {
+                var runtimeContext = _tenantManager.GetCurrentTenantContext().GetShardingRuntimeContext();
+                runtimeContext.UseAutoShardingCreate(); //启动定时任务
+                var tenantDbContext = scope.ServiceProvider.GetService<TenantDbContext>();
+                tenantDbContext.Database.Migrate();
+                runtimeContext.UseAutoTryCompensateTable();
+            }
+
             return Ok();
         }
+
         [HttpPost]
         public async Task<IActionResult> Login(LoginRequest request)
         {
-            var sysUser = await _identityDbContext.Set<SysUser>().FirstOrDefaultAsync(o=>o.Name==request.Name&&o.Password==request.Password);
+            var sysUser = await _identityDbContext.Set<SysUser>()
+                .FirstOrDefaultAsync(o => o.Name == request.Name && o.Password == request.Password);
             if (sysUser == null)
                 return BadRequest("name or password error");
 
             //秘钥，就是标头，这里用Hmacsha256算法，需要256bit的密钥
-            var securityKey = new SigningCredentials(new SymmetricSecurityKey(Encoding.ASCII.GetBytes("123123!@#!@#123123")), SecurityAlgorithms.HmacSha256);
+            var securityKey =
+                new SigningCredentials(new SymmetricSecurityKey(Encoding.ASCII.GetBytes("123123!@#!@#123123")),
+                    SecurityAlgorithms.HmacSha256);
             //Claim，JwtRegisteredClaimNames中预定义了好多种默认的参数名，也可以像下面的Guid一样自己定义键名.
             //ClaimTypes也预定义了好多类型如role、email、name。Role用于赋予权限，不同的角色可以访问不同的接口
             //相当于有效载荷
-            var claims = new Claim[] {
-                new Claim(JwtRegisteredClaimNames.Iss,"https://localhost:5000"),
-                new Claim(JwtRegisteredClaimNames.Aud,"api"),
-                new Claim("id",Guid.NewGuid().ToString("n")),
-                new Claim("uid",sysUser.Id),
+            var claims = new Claim[]
+            {
+                new Claim(JwtRegisteredClaimNames.Iss, "https://localhost:5000"),
+                new Claim(JwtRegisteredClaimNames.Aud, "api"),
+                new Claim("id", Guid.NewGuid().ToString("n")),
+                new Claim("uid", sysUser.Id),
             };
             SecurityToken securityToken = new JwtSecurityToken(
                 signingCredentials: securityKey,
-                expires: DateTime.Now.AddHours(2),//过期时间
+                expires: DateTime.Now.AddHours(2), //过期时间
                 claims: claims
             );
             var token = new JwtSecurityTokenHandler().WriteToken(securityToken);
@@ -90,18 +116,22 @@ namespace ShardingCoreMultiTenantSys.Controllers.IdentitySys
         {
             switch (dbType)
             {
-                case DbTypeEnum.MSSQL: return $"Data Source=localhost;Initial Catalog=DB{userId};Integrated Security=True;";
-                case DbTypeEnum.MYSQL: return $"server=127.0.0.1;port=3306;database=DB{userId};userid=root;password=L6yBtV6qNENrwBy7;";
+                case DbTypeEnum.MSSQL:
+                    return $"Data Source=localhost;Initial Catalog=DB{userId};Integrated Security=True;";
+                case DbTypeEnum.MYSQL:
+                    return $"server=127.0.0.1;port=3306;database=DB{userId};userid=root;password=L6yBtV6qNENrwBy7;";
                 default: throw new NotImplementedException();
             }
         }
     }
-    
+
     public class RegisterRequest
     {
         public string Name { get; set; }
         public string Password { get; set; }
         public DbTypeEnum DbType { get; set; }
+        public OrderShardingTypeEnum OrderShardingType { get; set; }
+        public DateTime? BeginTimeForSharding { get; set; }
     }
 
     public class LoginRequest
@@ -109,5 +139,4 @@ namespace ShardingCoreMultiTenantSys.Controllers.IdentitySys
         public string Name { get; set; }
         public string Password { get; set; }
     }
-
 }
