@@ -2,13 +2,19 @@
 using ShardingCore.VirtualRoutes.Abstractions;
 using ShardingCore.VirtualRoutes.Mods;
 using ShardingCore.VirtualRoutes.Months;
+using ShardingCoreMultiTenantSys.IdentitySys.ShardingConfigs;
 using ShardingCoreMultiTenantSys.TenantSys.Domain.Entities;
 
 namespace ShardingCoreMultiTenantSys.TenantSys.Shardings
 {
     public class OrderMonthTableRoute:AbstractSimpleShardingMonthKeyDateTimeVirtualTableRoute<Order>
     {
-        public static DateTime BeginTimeForSharding { get; set; } = new DateTime(2020, 1, 1);
+        private readonly ShardingTenantOptions _shardingTenantOptions;
+
+        public OrderMonthTableRoute(ShardingTenantOptions shardingTenantOptions)
+        {
+            _shardingTenantOptions = shardingTenantOptions;
+        }
         public override void Configure(EntityMetadataTableBuilder<Order> builder)
         {
             builder.ShardingProperty(o => o.CreationTime);
@@ -22,7 +28,7 @@ namespace ShardingCoreMultiTenantSys.TenantSys.Shardings
 
         public override DateTime GetBeginTime()
         {
-            return BeginTimeForSharding;
+            return _shardingTenantOptions.BeginTimeForSharding;
         }
     }
 }

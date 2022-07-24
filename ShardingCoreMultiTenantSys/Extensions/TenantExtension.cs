@@ -45,7 +45,6 @@ namespace ShardingCoreMultiTenantSys.Extensions
                     //开启定时任务
                     shardingRuntimeContext.UseAutoShardingCreate();
                     var tenantDbContext = scope.ServiceProvider.GetService<TenantDbContext>();
-                    //
                     tenantDbContext.Database.Migrate();
                     //补偿表
                     shardingRuntimeContext.UseAutoTryCompensateTable();

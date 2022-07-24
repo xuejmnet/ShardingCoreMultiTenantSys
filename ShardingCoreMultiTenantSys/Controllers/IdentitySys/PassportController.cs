@@ -54,7 +54,8 @@ namespace ShardingCoreMultiTenantSys.Controllers.IdentitySys
                 OrderShardingType = request.OrderShardingType,
                 BeginTimeForSharding = request.BeginTimeForSharding.Value,
                 DefaultDataSourceName = "ds0",
-                DefaultConnectionString = GetDefaultString(request.DbType, sysUser.Id)
+                DefaultConnectionString = GetDefaultString(request.DbType, sysUser.Id),
+                MigrationNamespace = request.MigrationNamespace
             };
             var sysUserTenantConfig = new SysUserTenantConfig()
             {
@@ -132,6 +133,10 @@ namespace ShardingCoreMultiTenantSys.Controllers.IdentitySys
         public DbTypeEnum DbType { get; set; }
         public OrderShardingTypeEnum OrderShardingType { get; set; }
         public DateTime? BeginTimeForSharding { get; set; }
+        /// <summary>
+        /// 分片迁移的命名空间
+        /// </summary>
+        public string MigrationNamespace { get; set; }
     }
 
     public class LoginRequest

@@ -24,5 +24,9 @@ namespace ShardingCoreMultiTenantSys.IdentitySys.ShardingConfigs
         /// 按月分片其实时间
         /// </summary>
         public DateTime BeginTimeForSharding { get; set; }
+        /// <summary>
+        /// 分片迁移的命名空间
+        /// </summary>
+        public string MigrationNamespace { get; set; }
     }
 }

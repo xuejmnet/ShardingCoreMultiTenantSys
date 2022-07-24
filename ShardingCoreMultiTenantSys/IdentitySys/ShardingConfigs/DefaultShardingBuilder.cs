@@ -5,6 +5,8 @@ using ShardingCore.Core.RuntimeContexts;
 using ShardingCore.TableExists;
 using ShardingCore.TableExists.Abstractions;
 using ShardingCoreMultiTenantSys.DbContexts;
+using ShardingCoreMultiTenantSys.Extensions;
+using ShardingCoreMultiTenantSys.MigrationsAssemblies;
 using ShardingCoreMultiTenantSys.TenantSys.Shardings;
 
 namespace ShardingCoreMultiTenantSys.IdentitySys.ShardingConfigs;
@@ -42,14 +44,17 @@ public class DefaultShardingBuilder:IShardingBuilder
                 {
                     if (tenantOptions.DbType == DbTypeEnum.MYSQL)
                     {
-                        builder.UseMySql(conStr, new MySqlServerVersion(new Version())); 
+                        builder.UseMySql(conStr, new MySqlServerVersion(new Version()))
+                            .UseMigrationNamespace(new MySqlMigrationNamespace()); 
                     }
                     if (tenantOptions.DbType == DbTypeEnum.MSSQL)
                     {
-                        builder.UseSqlServer(conStr); 
+                        builder.UseSqlServer(conStr)
+                            .UseMigrationNamespace(new SqlServerMigrationNamespace()); 
                     }
                     builder.UseLoggerFactory(efLogger)
-                        .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+                        .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking)
+                        .ReplaceService<IMigrationsAssembly,MultiDatabaseMigrationsAssembly>();
                 });
                 o.UseShardingTransaction((connection, builder) =>
                 {
@@ -57,10 +62,12 @@ public class DefaultShardingBuilder:IShardingBuilder
                     {
                         builder
                             .UseMySql(connection, new MySqlServerVersion(new Version()));
+                            //.UseMigrationNamespace(new MySqlMigrationNamespace());//迁移只会用connection string创建所以可以不加
                     }
                     if (tenantOptions.DbType == DbTypeEnum.MSSQL)
                     {
-                        builder.UseSqlServer(connection); 
+                        builder.UseSqlServer(connection);
+                        //.UseMigrationNamespace(new SqlServerMigrationNamespace()); 
                     }
                     builder.UseLoggerFactory(efLogger)
                         .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
@@ -81,6 +88,10 @@ public class DefaultShardingBuilder:IShardingBuilder
                         b.ReplaceService<IMigrationsSqlGenerator, ShardingMySqlMigrationsSqlGenerator>();
                     }
                 });
+            }).AddServiceConfigure(s =>
+            {
+                //IShardingRuntimeContext内部的依赖注入
+                s.AddSingleton(tenantOptions);
             });
         
         if (tenantOptions.DbType == DbTypeEnum.MYSQL)
