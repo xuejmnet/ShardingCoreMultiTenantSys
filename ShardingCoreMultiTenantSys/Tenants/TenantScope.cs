@@ -11,6 +11,7 @@ namespace ShardingCoreMultiTenantSys.Tenants
 
         public void Dispose()
         {
+            TenantContextAccessor.TenantContext = null;
         }
     }
     
