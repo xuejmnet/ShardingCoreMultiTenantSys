@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.IdentityModel.Tokens;
 using ShardingCore;
 using ShardingCore.Bootstrappers;
+using ShardingCore.Extensions;
 using ShardingCoreMultiTenantSys.DbContexts;
 using ShardingCoreMultiTenantSys.Extensions;
 using ShardingCoreMultiTenantSys.IdentitySys;
@@ -21,7 +22,7 @@ builder.Services.AddControllers();
 builder.Services.AddAuthentication();
 
 #region 用户系统配置
-
+// Add-Migration IdentityInit -Context IdentityDbContext  -OutputDir Migrations\Identity
 builder.Services.AddDbContext<IdentityDbContext>(o =>
     o.UseSqlServer("Data Source=localhost;Initial Catalog=IdDb;Integrated Security=True;"));
 //生成密钥
@@ -66,28 +67,25 @@ builder.Services.AddDbContext<TenantDbContext>((sp, b) =>
         var shardingRuntimeContext = currentTenantContext.GetShardingRuntimeContext();
         b.UseDefaultSharding<TenantDbContext>(shardingRuntimeContext);
     }
-
-    if (provider == "UnKnown")
+    if (args.IsNotEmpty())
     {
-        throw new Exception("无法获取租户数据库信息");
-    }
+        //命令启动时为了保证Add-Migration正常运行
+        if (provider == "MySql")
+        {
+            b.UseMySql("server=127.0.0.1;port=3306;database=TenantDb;userid=root;password=L6yBtV6qNENrwBy7;",
+                    new MySqlServerVersion(new Version()))
+                .UseMigrationNamespace(new MySqlMigrationNamespace())
+                .ReplaceService<IMigrationsAssembly, MultiDatabaseMigrationsAssembly>();
+            return;
+        }
 
-//命令启动时为了保证Add-Migration正常运行
-    if (provider == "MySql")
-    {
-        b.UseMySql("server=127.0.0.1;port=3306;database=TenantDb;userid=root;password=L6yBtV6qNENrwBy7;",
-                new MySqlServerVersion(new Version()))
-            .UseMigrationNamespace(new MySqlMigrationNamespace())
-            .ReplaceService<IMigrationsAssembly, MultiDatabaseMigrationsAssembly>();
-        return;
-    }
-
-    if (provider == "SqlServer")
-    {
-        b.UseSqlServer("Data Source=localhost;Initial Catalog=TenantDb;Integrated Security=True;")
-            .UseMigrationNamespace(new SqlServerMigrationNamespace())
-            .ReplaceService<IMigrationsAssembly, MultiDatabaseMigrationsAssembly>();
-        return;
+        if (provider == "SqlServer")
+        {
+            b.UseSqlServer("Data Source=localhost;Initial Catalog=TenantDb;Integrated Security=True;")
+                .UseMigrationNamespace(new SqlServerMigrationNamespace())
+                .ReplaceService<IMigrationsAssembly, MultiDatabaseMigrationsAssembly>();
+            return;
+        }
     }
 });
 

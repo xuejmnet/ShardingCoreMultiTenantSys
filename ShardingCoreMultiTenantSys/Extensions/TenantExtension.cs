@@ -20,7 +20,7 @@ namespace ShardingCoreMultiTenantSys.Extensions
             using (var scope = serviceProvider.CreateScope())
             {
                 var identityDbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-                identityDbContext.Database.EnsureCreated();
+                identityDbContext.Database.Migrate();
                 var sysUserTenantConfigs = identityDbContext.Set<SysUserTenantConfig>().ToList();
                 if (sysUserTenantConfigs.Any())
                 {

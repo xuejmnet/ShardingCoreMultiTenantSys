@@ -85,7 +85,7 @@ public class DefaultShardingBuilder:IShardingBuilder
                     }
                     if (tenantOptions.DbType == DbTypeEnum.MSSQL)
                     {
-                        b.ReplaceService<IMigrationsSqlGenerator, ShardingMySqlMigrationsSqlGenerator>();
+                        b.ReplaceService<IMigrationsSqlGenerator, ShardingSqlServerMigrationsSqlGenerator>();
                     }
                 });
             }).AddServiceConfigure(s =>
